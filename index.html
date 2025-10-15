@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake - Hecho por Emanuel Galvis Arana</title>
+    <title>Snake</title>
     <!-- Carga de Tailwind CSS para estilos de la página -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -287,8 +287,9 @@
                         coins: data.coins || 0,
                         selectedSnakeId: data.selectedSnakeId || 'default',
                         selectedFoodId: data.selectedFoodId || 'default',
-                        ownedSnakeIds: data.ownedSnakeIds || ['default'],
-                        ownedFoodIds: data.ownedFoodIds || ['default']
+                        // Asegurar que las listas de propiedad son arrays.
+                        ownedSnakeIds: Array.isArray(data.ownedSnakeIds) ? data.ownedSnakeIds : ['default'],
+                        ownedFoodIds: Array.isArray(data.ownedFoodIds) ? data.ownedFoodIds : ['default']
                     };
                 } else {
                     // Crear perfil inicial si no existe
@@ -361,18 +362,22 @@
         }
 
         function createShopItem(type, item) {
+            // Revisar si es propiedad del usuario
             const isOwned = type === 'snake' ? profile.ownedSnakeIds.includes(item.id) : profile.ownedFoodIds.includes(item.id);
             const isSelected = type === 'snake' ? (profile.selectedSnakeId === item.id) : (profile.selectedFoodId === item.id);
             
             const div = document.createElement('div');
+            // Usamos 'selected' para destacar el ítem activo
             div.className = `shop-item p-3 rounded-lg text-center ${isSelected ? 'selected' : 'bg-gray-800'}`;
             div.dataset.id = item.id;
             div.dataset.type = type;
 
             let colorPreview;
             if (type === 'snake') {
+                // Preview de skin de serpiente (cabeza y cuerpo)
                 colorPreview = `<div class="w-12 h-6 mx-auto mb-2 rounded-md" style="background-color: ${item.body}; border: 2px solid ${item.head}"></div>`;
             } else { // food
+                // Preview de skin de lata (color del logo)
                 colorPreview = `<div class="w-6 h-6 mx-auto mb-2 rounded-full" style="background-color: ${item.color}; border: 2px solid #111"></div>`;
             }
 
@@ -400,29 +405,32 @@
 
         function handleShopAction(type, item, isOwned) {
             if (isOwned) {
-                // Equipar
+                // --- LÓGICA DE EQUIPAR ---
                 const selectedKey = type === 'snake' ? 'selectedSnakeId' : 'selectedFoodId';
                 if (profile[selectedKey] !== item.id) {
                     saveUserProfile({ [selectedKey]: item.id });
-                    renderShop(); // Actualizar el UI para mostrar el cambio
+                    // NO LLAMAR RENDER SHOP AQUÍ. Se llama automáticamente desde saveUserProfile a través de onSnapshot/updateUIFromProfile.
+                    // Esto asegura que la UI se actualice con los datos cargados desde Firestore.
                 }
             } else {
-                // Comprar
+                // --- LÓGICA DE COMPRA ---
                 if (profile.coins >= item.price) {
                     const ownedKey = type === 'snake' ? 'ownedSnakeIds' : 'ownedFoodIds';
                     const selectedKey = type === 'snake' ? 'selectedSnakeId' : 'selectedFoodId';
-
-                    profile.coins -= item.price;
-                    profile[ownedKey].push(item.id);
-                    profile[selectedKey] = item.id; // Equipar automáticamente
-
-                    saveUserProfile({ 
-                        coins: profile.coins, 
-                        [ownedKey]: profile[ownedKey],
-                        [selectedKey]: profile[selectedKey]
-                    });
                     
-                    renderShop(); // Actualizar el UI para mostrar la compra
+                    // Actualizaciones locales antes de guardar
+                    const newCoins = profile.coins - item.price;
+                    const newOwnedIds = [...profile[ownedKey], item.id];
+                    
+                    const updateData = { 
+                        coins: newCoins, 
+                        [ownedKey]: newOwnedIds,
+                        [selectedKey]: item.id // Equipar automáticamente al comprar
+                    };
+
+                    saveUserProfile(updateData);
+                    
+                    // NO LLAMAR RENDER SHOP AQUÍ.
                 } else {
                     alertMessage('Coins Insuficientes', `Necesitas ${item.price - profile.coins} coins más para comprar ${item.name}.`, 'red');
                 }
@@ -438,7 +446,7 @@
 
             shopModal.classList.remove('hidden');
             messageModal.classList.add('hidden');
-            renderShop();
+            renderShop(); // Asegurarse de que la tienda se dibuje con el estado actual
         }
 
         function closeShop() {
@@ -792,3 +800,4 @@
     </script>
 </body>
 </html>
+
