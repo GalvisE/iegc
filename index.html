@@ -287,7 +287,7 @@
                         coins: data.coins || 0,
                         selectedSnakeId: data.selectedSnakeId || 'default',
                         selectedFoodId: data.selectedFoodId || 'default',
-                        // Asegurar que las listas de propiedad son arrays.
+                        // Asegurar que las listas de propiedad son arrays válidos
                         ownedSnakeIds: Array.isArray(data.ownedSnakeIds) ? data.ownedSnakeIds : ['default'],
                         ownedFoodIds: Array.isArray(data.ownedFoodIds) ? data.ownedFoodIds : ['default']
                     };
@@ -320,7 +320,7 @@
                 }, { merge: true });
 
                 profile = newProfileData; // Actualizar el estado local después del guardado exitoso
-                updateUIFromProfile();
+                // No llamamos updateUIFromProfile() aquí, el onSnapshot lo hará por nosotros.
             } catch (e) {
                 console.error("Error al guardar el perfil:", e);
             }
@@ -350,6 +350,9 @@
         // --- LÓGICA DE TIENDA ---
 
         function renderShop() {
+            const snakeSkinsContainer = document.getElementById('snakeSkinsContainer');
+            const foodSkinsContainer = document.getElementById('foodSkinsContainer');
+            
             snakeSkinsContainer.innerHTML = '';
             foodSkinsContainer.innerHTML = '';
 
@@ -404,23 +407,24 @@
         }
 
         function handleShopAction(type, item, isOwned) {
+            const selectedKey = type === 'snake' ? 'selectedSnakeId' : 'selectedFoodId';
+            const ownedKey = type === 'snake' ? 'ownedSnakeIds' : 'ownedFoodIds';
+
             if (isOwned) {
                 // --- LÓGICA DE EQUIPAR ---
-                const selectedKey = type === 'snake' ? 'selectedSnakeId' : 'selectedFoodId';
                 if (profile[selectedKey] !== item.id) {
+                    // Solo guarda si es diferente para evitar escrituras innecesarias
                     saveUserProfile({ [selectedKey]: item.id });
-                    // NO LLAMAR RENDER SHOP AQUÍ. Se llama automáticamente desde saveUserProfile a través de onSnapshot/updateUIFromProfile.
-                    // Esto asegura que la UI se actualice con los datos cargados desde Firestore.
                 }
             } else {
                 // --- LÓGICA DE COMPRA ---
                 if (profile.coins >= item.price) {
-                    const ownedKey = type === 'snake' ? 'ownedSnakeIds' : 'ownedFoodIds';
-                    const selectedKey = type === 'snake' ? 'selectedSnakeId' : 'selectedFoodId';
                     
-                    // Actualizaciones locales antes de guardar
+                    // Asegurar que profile[ownedKey] es un array antes de intentar usar push
+                    const currentOwnedIds = Array.isArray(profile[ownedKey]) ? profile[ownedKey] : ['default'];
+
                     const newCoins = profile.coins - item.price;
-                    const newOwnedIds = [...profile[ownedKey], item.id];
+                    const newOwnedIds = [...currentOwnedIds, item.id];
                     
                     const updateData = { 
                         coins: newCoins, 
@@ -430,7 +434,6 @@
 
                     saveUserProfile(updateData);
                     
-                    // NO LLAMAR RENDER SHOP AQUÍ.
                 } else {
                     alertMessage('Coins Insuficientes', `Necesitas ${item.price - profile.coins} coins más para comprar ${item.name}.`, 'red');
                 }
@@ -800,4 +803,3 @@
     </script>
 </body>
 </html>
-
